@@ -1,0 +1,3 @@
+/home/tiramisu/Projects/ChessAI/build/CMakeFiles/ChessAI.dir
+/home/tiramisu/Projects/ChessAI/build/CMakeFiles/edit_cache.dir
+/home/tiramisu/Projects/ChessAI/build/CMakeFiles/rebuild_cache.dir
