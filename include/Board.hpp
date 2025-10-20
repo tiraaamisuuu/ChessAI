@@ -32,6 +32,14 @@ private:
     char currentPlayer;                     // 'W' for White (uppercase pieces), 'B' for Black (lowercase)
     std::string lastMove;                   // Stores the last move in format "e2e4"
 
+    // Castling/move tracking
+    bool whiteKingMoved = false;
+    bool blackKingMoved = false;
+    bool whiteRookAMoved = false; // a1
+    bool whiteRookHMoved = false; // h1
+    bool blackRookAMoved = false; // a8
+    bool blackRookHMoved = false; // h8
+
     // Move validation with detailed error messages
     std::string validateMove(const std::string &move) const;
 

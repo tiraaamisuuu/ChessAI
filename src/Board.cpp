@@ -312,21 +312,65 @@ bool Board::makeMove(const std::string &move) {
     int fromY = rankToY(move[1]);
     int toX   = fileToX(move[2]);
     int toY   = rankToY(move[3]);
-   
-    // apply move
+
     char moved = squares[fromY][fromX];
+
+    // Detect castling
+    bool isCastling = false;
+    if (std::toupper(moved) == 'K' && std::abs(toX - fromX) == 2) {
+        isCastling = true;
+        // White kingside
+        if (currentPlayer == 'W' && toX == 6) {
+            squares[7][5] = 'R';
+            squares[7][7] = '.';
+            whiteKingMoved = true;
+            whiteRookHMoved = true;
+        }
+        // White queenside
+        else if (currentPlayer == 'W' && toX == 2) {
+            squares[7][3] = 'R';
+            squares[7][0] = '.';
+            whiteKingMoved = true;
+            whiteRookAMoved = true;
+        }
+        // Black kingside
+        else if (currentPlayer == 'B' && toX == 6) {
+            squares[0][5] = 'r';
+            squares[0][7] = '.';
+            blackKingMoved = true;
+            blackRookHMoved = true;
+        }
+        // Black queenside
+        else if (currentPlayer == 'B' && toX == 2) {
+            squares[0][3] = 'r';
+            squares[0][0] = '.';
+            blackKingMoved = true;
+            blackRookAMoved = true;
+        }
+    }
+
+    // Normal move
     squares[toY][toX] = moved;
     squares[fromY][fromX] = '.';
 
-    // Handle pawn promotion
+    // Pawn promotion
     if (std::toupper(moved) == 'P') {
         if ((std::isupper(moved) && toY == 0) || (std::islower(moved) && toY == 7)) {
-            // Promote to Queen
             squares[toY][toX] = std::isupper(moved) ? 'Q' : 'q';
             std::cout << "Pawn promoted to Queen!\n";
         }
     }
-    
+
+    // Track king and rook moves for future castling
+    if (!isCastling) {
+        if (moved == 'K') whiteKingMoved = true;
+        if (moved == 'k') blackKingMoved = true;
+        if (fromX == 0 && fromY == 7 && moved == 'R') whiteRookAMoved = true;
+        if (fromX == 7 && fromY == 7 && moved == 'R') whiteRookHMoved = true;
+        if (fromX == 0 && fromY == 0 && moved == 'r') blackRookAMoved = true;
+        if (fromX == 7 && fromY == 0 && moved == 'r') blackRookHMoved = true;
+    }
+
     lastMove = move;
     currentPlayer = (currentPlayer == 'W') ? 'B' : 'W';
     return true;
