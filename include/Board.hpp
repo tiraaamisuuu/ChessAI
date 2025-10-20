@@ -36,10 +36,9 @@ private:
     bool whiteKingMoved = false;
     bool blackKingMoved = false;
     bool whiteRookAMoved = false; // a1
-    bool whiteRookHMoved = false; // h1
-    bool blackRookAMoved = false; // a8
-    bool blackRookHMoved = false; // h8
-
+    bool whiteRookMoved[2] = {false, false}; // [0] = a1 rook, [1] = h1 rook    bool blackRookAMoved = false; // a8
+    bool blackRookMoved[2] = {false, false}; // [0] = a8 rook, [1] = h8 rook
+                                             //
     // Move validation with detailed error messages
     std::string validateMove(const std::string &move) const;
 

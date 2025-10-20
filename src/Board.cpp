@@ -140,9 +140,46 @@ bool Board::isValidQueenMove(int fromX, int fromY, int toX, int toY) const {
 }
 
 bool Board::isValidKingMove(int fromX, int fromY, int toX, int toY) const {
-    return std::max(std::abs(toX - fromX), std::abs(toY - fromY)) == 1;
-}
+    int dx = toX - fromX;
+    int dy = toY - fromY;
 
+    // Normal king move (1 square any direction)
+    if (std::max(std::abs(dx), std::abs(dy)) == 1) return true;
+
+    // Castling
+    if (dy == 0 && std::abs(dx) == 2) {
+        // White
+        if (currentPlayer == 'W') {
+            if (whiteKingMoved) return false; // King already moved
+            // Kingside
+            if (dx == 2 && !whiteRookHMoved &&
+                squares[7][5] == '.' && squares[7][6] == '.' &&
+                !isSquareAttacked(4,7,true) && !isSquareAttacked(5,7,true) && !isSquareAttacked(6,7,true))
+                return true;
+            // Queenside
+            if (dx == -2 && !whiteRookAMoved &&
+                squares[7][1] == '.' && squares[7][2] == '.' && squares[7][3] == '.' &&
+                !isSquareAttacked(4,7,true) && !isSquareAttacked(3,7,true) && !isSquareAttacked(2,7,true))
+                return true;
+        }
+        // Black
+        else {
+            if (blackKingMoved) return false;
+            // Kingside
+            if (dx == 2 && !blackRookHMoved &&
+                squares[0][5] == '.' && squares[0][6] == '.' &&
+                !isSquareAttacked(4,0,false) && !isSquareAttacked(5,0,false) && !isSquareAttacked(6,0,false))
+                return true;
+            // Queenside
+            if (dx == -2 && !blackRookAMoved &&
+                squares[0][1] == '.' && squares[0][2] == '.' && squares[0][3] == '.' &&
+                !isSquareAttacked(4,0,false) && !isSquareAttacked(3,0,false) && !isSquareAttacked(2,0,false))
+                return true;
+        }
+    }
+
+    return false;
+}
 bool Board::isCorrectPlayerMove(char piece) const {
     return (currentPlayer == 'W') ? std::isupper(piece) : std::islower(piece);
 }
