@@ -13,13 +13,25 @@ This project is mainly for learning, experimenting, and testing AI strategies in
 
 ## Setup
 
+### Dependencies
+
+- C++17 or later
+- CMake 3.20+
+- Standard C++ libraries (no external libraries required)
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/tiraaamisuuu/ChessAI.git
 cd ChessAI
+```
+2.	Build the project using CMake:
+```bash
 rm -rf build
 cmake -B build -S .
 cmake --build build
+```
+Run the ChessAI executable:
+```bash
 ./build/ChessAI
 ```
 ## How to Play
