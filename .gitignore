@@ -1,0 +1,22 @@
+# Build folders
+build/
+cmake-build-*/
+
+# CMake cache and config files
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+
+# Executables and binaries
+*.o
+*.out
+*.exe
+
+# Logs and temp files
+*.log
+*.tmp
+
+# macOS system files
+.DS_Store
