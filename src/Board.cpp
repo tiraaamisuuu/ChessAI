@@ -143,44 +143,55 @@ bool Board::isValidKingMove(int fromX, int fromY, int toX, int toY) const {
     int dx = toX - fromX;
     int dy = toY - fromY;
 
-    // Normal king move (1 square any direction)
-    if (std::max(std::abs(dx), std::abs(dy)) == 1) return true;
+    std::cout << "DEBUG: fromX=" << fromX << " fromY=" << fromY
+              << " toX=" << toX << " toY=" << toY
+              << " dx=" << dx << " dy=" << dy << "\n";  // debug
+
+    // Normal king move
+    if (std::max(std::abs(dx), std::abs(dy)) == 1)
+        return true;
 
     // Castling
     if (dy == 0 && std::abs(dx) == 2) {
-        // White
         if (currentPlayer == 'W') {
-            if (whiteKingMoved) return false; // King already moved
+            std::cout << "DEBUG: whiteKingMoved=" << whiteKingMoved
+                      << " whiteRookMoved[0]=" << whiteRookMoved[0]
+                      << " whiteRookMoved[1]=" << whiteRookMoved[1] << "\n"; // debug
+            if (whiteKingMoved) return false;
+
             // Kingside
-            if (dx == 2 && !whiteRookHMoved &&
+            if (dx == 2 && !whiteRookMoved[1] &&
                 squares[7][5] == '.' && squares[7][6] == '.' &&
-                !isSquareAttacked(4,7,true) && !isSquareAttacked(5,7,true) && !isSquareAttacked(6,7,true))
+                !isSquareAttacked(4,7,false) && !isSquareAttacked(5,7,false) && !isSquareAttacked(6,7,false))
                 return true;
+
             // Queenside
-            if (dx == -2 && !whiteRookAMoved &&
+            if (dx == -2 && !whiteRookMoved[0] &&
                 squares[7][1] == '.' && squares[7][2] == '.' && squares[7][3] == '.' &&
-                !isSquareAttacked(4,7,true) && !isSquareAttacked(3,7,true) && !isSquareAttacked(2,7,true))
+                !isSquareAttacked(4,7,false) && !isSquareAttacked(3,7,false) && !isSquareAttacked(2,7,false))
                 return true;
-        }
-        // Black
-        else {
+        } else {
+            std::cout << "DEBUG: blackKingMoved=" << blackKingMoved
+                      << " blackRookMoved[0]=" << blackRookMoved[0]
+                      << " blackRookMoved[1]=" << blackRookMoved[1] << "\n"; // debug
             if (blackKingMoved) return false;
+
             // Kingside
-            if (dx == 2 && !blackRookHMoved &&
+            if (dx == 2 && !blackRookMoved[1] &&
                 squares[0][5] == '.' && squares[0][6] == '.' &&
-                !isSquareAttacked(4,0,false) && !isSquareAttacked(5,0,false) && !isSquareAttacked(6,0,false))
+                !isSquareAttacked(4,0,true) && !isSquareAttacked(5,0,true) && !isSquareAttacked(6,0,true))
                 return true;
+
             // Queenside
-            if (dx == -2 && !blackRookAMoved &&
+            if (dx == -2 && !blackRookMoved[0] &&
                 squares[0][1] == '.' && squares[0][2] == '.' && squares[0][3] == '.' &&
-                !isSquareAttacked(4,0,false) && !isSquareAttacked(3,0,false) && !isSquareAttacked(2,0,false))
+                !isSquareAttacked(4,0,true) && !isSquareAttacked(3,0,true) && !isSquareAttacked(2,0,true))
                 return true;
         }
     }
 
     return false;
-}
-bool Board::isCorrectPlayerMove(char piece) const {
+}bool Board::isCorrectPlayerMove(char piece) const {
     return (currentPlayer == 'W') ? std::isupper(piece) : std::islower(piece);
 }
 
@@ -228,14 +239,30 @@ std::string Board::validateMove(const std::string &move) const {
 bool Board::wouldLeaveKingInCheck(int fromX, int fromY, int toX, int toY) const {
     Board copy = *this;
     char piece = copy.squares[fromY][fromX];
-    copy.squares[toY][toX] = piece;
-    copy.squares[fromY][fromX] = '.';
 
-    // currentPlayer is the moving side
+    // Debug
+    std::cout << "DEBUG: wouldLeaveKingInCheck from=" << fromX << fromY
+              << " to=" << toX << toY << "\n";
+
+    // Castling: move king and rook together
+    if (std::toupper(piece) == 'K' && std::abs(toX - fromX) == 2) {
+        copy.squares[toY][toX] = piece;
+        copy.squares[fromY][fromX] = '.';
+
+        if (toX > fromX) {
+            copy.squares[toY][toX-1] = copy.squares[toY][7]; // rook to f1/f8
+            copy.squares[toY][7] = '.';
+        } else {
+            copy.squares[toY][toX+1] = copy.squares[toY][0]; // rook to d1/d8
+            copy.squares[toY][0] = '.';
+        }
+    } else {
+        copy.squares[toY][toX] = piece;
+        copy.squares[fromY][fromX] = '.';
+    }
+
     return copy.isInCheck(currentPlayer);
 }
-
-
 // Detect if a square is attacked by pieces of the specified colour
 // Check whether a square (x, y) is attacked by any piece of the given colour
 // byWhite == true => check attacks by white pieces, false => black pieces
@@ -361,28 +388,28 @@ bool Board::makeMove(const std::string &move) {
             squares[7][5] = 'R';
             squares[7][7] = '.';
             whiteKingMoved = true;
-            whiteRookHMoved = true;
+            whiteRookMoved[1] = true;
         }
         // White queenside
         else if (currentPlayer == 'W' && toX == 2) {
             squares[7][3] = 'R';
             squares[7][0] = '.';
             whiteKingMoved = true;
-            whiteRookAMoved = true;
+            whiteRookMoved[0] = true;
         }
         // Black kingside
         else if (currentPlayer == 'B' && toX == 6) {
             squares[0][5] = 'r';
             squares[0][7] = '.';
             blackKingMoved = true;
-            blackRookHMoved = true;
+            blackRookMoved[1] = true;
         }
         // Black queenside
         else if (currentPlayer == 'B' && toX == 2) {
             squares[0][3] = 'r';
             squares[0][0] = '.';
             blackKingMoved = true;
-            blackRookAMoved = true;
+            blackRookMoved[0] = true;
         }
     }
 
@@ -402,10 +429,10 @@ bool Board::makeMove(const std::string &move) {
     if (!isCastling) {
         if (moved == 'K') whiteKingMoved = true;
         if (moved == 'k') blackKingMoved = true;
-        if (fromX == 0 && fromY == 7 && moved == 'R') whiteRookAMoved = true;
-        if (fromX == 7 && fromY == 7 && moved == 'R') whiteRookHMoved = true;
-        if (fromX == 0 && fromY == 0 && moved == 'r') blackRookAMoved = true;
-        if (fromX == 7 && fromY == 0 && moved == 'r') blackRookHMoved = true;
+        if (fromX == 0 && fromY == 7 && moved == 'R') whiteRookMoved[0] = true;
+        if (fromX == 7 && fromY == 7 && moved == 'R') whiteRookMoved[1] = true;
+        if (fromX == 0 && fromY == 0 && moved == 'r') blackRookMoved[0] = true;
+        if (fromX == 7 && fromY == 0 && moved == 'r') blackRookMoved[1] = true;
     }
 
     lastMove = move;
