@@ -12,6 +12,7 @@ public:
 
 private:
     char playerColor;
+    std::string lastMoveFrom;
 };
 
 #endif
