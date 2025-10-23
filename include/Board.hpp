@@ -19,13 +19,13 @@ public:
 
     // Check utilities
     bool isInCheck(char color) const;       // true if 'W' or 'B' king is under attack
-    bool isCheckmate(char color) const;           // true if that colour is checkmated
-    bool isStalemate(char color) const;           // true if that colour has no legal moves but not in check
+    bool isCheckmate(char color) const;     // true if that colour is checkmated
+    bool isStalemate(char color) const;     // true if that colour has no legal moves but not in check
+
     // Return the piece at (x, y)
     char getSquare(int x, int y) const { return squares[y][x]; }
     // Check if a move is valid
     bool isMoveValid(const std::string &move) const { return validateMove(move).empty(); }
-
 
 private:
     std::array<std::array<char, 8>, 8> squares; // 8x8 board; '.' is empty
@@ -35,10 +35,16 @@ private:
     // Castling/move tracking
     bool whiteKingMoved = false;
     bool blackKingMoved = false;
-    bool whiteRookAMoved = false; // a1
-    bool whiteRookMoved[2] = {false, false}; // [0] = a1 rook, [1] = h1 rook    bool blackRookAMoved = false; // a8
-    bool blackRookMoved[2] = {false, false}; // [0] = a8 rook, [1] = h8 rook
-                                             //
+    // rook moved flags: [0] = a-file rook (a1/a8), [1] = h-file rook (h1/h8)
+    bool whiteRookMoved[2] = { false, false };
+    bool blackRookMoved[2] = { false, false };
+
+    // En-passant target square: if no target, enPassantX/Y == -1
+    // enPassantX/enPassantY hold coordinates of the square a pawn would move to
+    // when capturing en-passant (the square the pawn jumped over).
+    int enPassantX = -1;
+    int enPassantY = -1;
+
     // Move validation with detailed error messages
     std::string validateMove(const std::string &move) const;
 

@@ -135,7 +135,7 @@ std::string AIPlayer::findBestMove(Board &board) {
         Board copy = board;
         copy.makeMove(mv);
 
-        double score = miniMax(copy, 2, false); // 2-ply lookahead
+        double score = miniMax(copy, 3, false); // 3-ply lookahead
 
         // Extra aggression bonus
         char toPiece = board.getSquare(mv[2]-'a', '8'-mv[3]);

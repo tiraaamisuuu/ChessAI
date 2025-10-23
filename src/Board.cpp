@@ -7,7 +7,7 @@
 #include <iostream>
 
 // Constructor: set up initial chessboard, current player, and last move
-Board::Board() : currentPlayer('W'), lastMove("") {
+Board::Board() : currentPlayer('W'), lastMove(""), enPassantX(-1), enPassantY(-1) {
     const std::string initial[8] = {
         "rnbqkbnr", // 8th rank (black)
         "pppppppp", // 7th rank
@@ -97,7 +97,7 @@ bool Board::isPathClear(int fromX, int fromY, int toX, int toY) const {
     return true;
 }
 
-// Pawn movement
+// Pawn movement (includes regular capture + two-step start; en-passant handled in validate)
 bool Board::isValidPawnMove(int fromX, int fromY, int toX, int toY) const {
     char piece = squares[fromY][fromX];
     int dir = std::isupper(piece) ? -1 : 1;
@@ -110,13 +110,14 @@ bool Board::isValidPawnMove(int fromX, int fromY, int toX, int toY) const {
     if (fromX == toX && fromY == startRow && toY - fromY == 2*dir &&
         squares[fromY + dir][fromX] == '.' && squares[toY][toX] == '.') return true;
 
-    // capture
+    // capture (normal)
     if (std::abs(toX - fromX) == 1 && toY - fromY == dir &&
         squares[toY][toX] != '.' &&
         ((std::isupper(piece) && std::islower(squares[toY][toX])) ||
          (std::islower(piece) && std::isupper(squares[toY][toX]))))
         return true;
 
+    // en-passant capture will be validated in validateMove (needs context of enPassantX/Y)
     return false;
 }
 
@@ -143,10 +144,6 @@ bool Board::isValidKingMove(int fromX, int fromY, int toX, int toY) const {
     int dx = toX - fromX;
     int dy = toY - fromY;
 
-    //std::cout << "DEBUG: fromX=" << fromX << " fromY=" << fromY
-    //          << " toX=" << toX << " toY=" << toY
-    //          << " dx=" << dx << " dy=" << dy << "\n";  // debug
-
     // Normal king move
     if (std::max(std::abs(dx), std::abs(dy)) == 1)
         return true;
@@ -154,9 +151,6 @@ bool Board::isValidKingMove(int fromX, int fromY, int toX, int toY) const {
     // Castling
     if (dy == 0 && std::abs(dx) == 2) {
         if (currentPlayer == 'W') {
-            //std::cout << "DEBUG: whiteKingMoved=" << whiteKingMoved
-            //          << " whiteRookMoved[0]=" << whiteRookMoved[0]
-            //          << " whiteRookMoved[1]=" << whiteRookMoved[1] << "\n"; // debug
             if (whiteKingMoved) return false;
 
             // Kingside
@@ -171,9 +165,6 @@ bool Board::isValidKingMove(int fromX, int fromY, int toX, int toY) const {
                 !isSquareAttacked(4,7,false) && !isSquareAttacked(3,7,false) && !isSquareAttacked(2,7,false))
                 return true;
         } else {
-            //std::cout << "DEBUG: blackKingMoved=" << blackKingMoved
-            //          << " blackRookMoved[0]=" << blackRookMoved[0]
-            //          << " blackRookMoved[1]=" << blackRookMoved[1] << "\n"; // debug
             if (blackKingMoved) return false;
 
             // Kingside
@@ -191,7 +182,9 @@ bool Board::isValidKingMove(int fromX, int fromY, int toX, int toY) const {
     }
 
     return false;
-}bool Board::isCorrectPlayerMove(char piece) const {
+}
+
+bool Board::isCorrectPlayerMove(char piece) const {
     return (currentPlayer == 'W') ? std::isupper(piece) : std::islower(piece);
 }
 
@@ -220,7 +213,21 @@ std::string Board::validateMove(const std::string &move) const {
 
     bool valid = false;
     switch (std::toupper(piece)) {
-        case 'P': valid = isValidPawnMove(fromX, fromY, toX, toY); break;
+        case 'P':
+            // standard pawn movement & captures
+            valid = isValidPawnMove(fromX, fromY, toX, toY);
+            // EN PASSANT: target square must be empty, moving diagonally one, and match enPassantX/Y
+            if (!valid) {
+                int dx = toX - fromX;
+                int dy = toY - fromY;
+                int dir = std::isupper(piece) ? -1 : 1;
+                if (std::abs(dx) == 1 && dy == dir && dest == '.' &&
+                    toX == enPassantX && toY == enPassantY) {
+                    // en-passant capture is allowed
+                    valid = true;
+                }
+            }
+            break;
         case 'R': valid = isValidRookMove(fromX, fromY, toX, toY); break;
         case 'N': valid = isValidKnightMove(fromX, fromY, toX, toY); break;
         case 'B': valid = isValidBishopMove(fromX, fromY, toX, toY); break;
@@ -240,22 +247,28 @@ bool Board::wouldLeaveKingInCheck(int fromX, int fromY, int toX, int toY) const 
     Board copy = *this;
     char piece = copy.squares[fromY][fromX];
 
-    // Debug
-    //std::cout << "DEBUG: wouldLeaveKingInCheck from=" << fromX << fromY
-    //          << " to=" << toX << toY << "\n";
-
-    // Castling: move king and rook together
+    // Handle castling move simulation same as actual move (move rook too)
     if (std::toupper(piece) == 'K' && std::abs(toX - fromX) == 2) {
         copy.squares[toY][toX] = piece;
         copy.squares[fromY][fromX] = '.';
-
         if (toX > fromX) {
-            copy.squares[toY][toX-1] = copy.squares[toY][7]; // rook to f1/f8
+            // kingside: move rook from h-file
+            copy.squares[toY][toX-1] = copy.squares[toY][7];
             copy.squares[toY][7] = '.';
         } else {
-            copy.squares[toY][toX+1] = copy.squares[toY][0]; // rook to d1/d8
+            // queenside: move rook from a-file
+            copy.squares[toY][toX+1] = copy.squares[toY][0];
             copy.squares[toY][0] = '.';
         }
+    }
+    // En-passant simulation: if pawn moves to enPassant square, remove captured pawn
+    else if (std::toupper(piece) == 'P' && std::abs(toX - fromX) == 1 && squares[toY][toX] == '.' &&
+             toX == enPassantX && toY == enPassantY) {
+        // move pawn
+        copy.squares[toY][toX] = piece;
+        copy.squares[fromY][fromX] = '.';
+        // remove the pawn that was captured en-passant: it's at (toX, fromY)
+        copy.squares[fromY][toX] = '.';
     } else {
         copy.squares[toY][toX] = piece;
         copy.squares[fromY][fromX] = '.';
@@ -263,8 +276,8 @@ bool Board::wouldLeaveKingInCheck(int fromX, int fromY, int toX, int toY) const 
 
     return copy.isInCheck(currentPlayer);
 }
+
 // Detect if a square is attacked by pieces of the specified colour
-// Check whether a square (x, y) is attacked by any piece of the given colour
 // byWhite == true => check attacks by white pieces, false => black pieces
 bool Board::isSquareAttacked(int x, int y, bool byWhite) const {
     for (int fromY = 0; fromY < 8; ++fromY) {
@@ -277,7 +290,7 @@ bool Board::isSquareAttacked(int x, int y, bool byWhite) const {
 
             char t = std::toupper(static_cast<unsigned char>(piece));
 
-            // Pawn attacks
+            // Pawn attacks (pawns attack diagonally)
             if (t == 'P') {
                 int dir = pieceIsWhite ? -1 : 1;
                 if ((fromX - 1 == x && fromY + dir == y) ||
@@ -316,6 +329,7 @@ bool Board::isSquareAttacked(int x, int y, bool byWhite) const {
     }
     return false;
 }
+
 // New: check if player’s king is in check
 // Return true if the given colour is in check
 bool Board::isInCheck(char color) const {
@@ -413,7 +427,16 @@ bool Board::makeMove(const std::string &move) {
         }
     }
 
-    // Normal move
+    // EN PASSANT capture handling: if pawn moves diagonally to empty square and it equals enPassant target
+    bool performedEnPassant = false;
+    if (std::toupper(moved) == 'P' && std::abs(toX - fromX) == 1 && squares[toY][toX] == '.' &&
+        toX == enPassantX && toY == enPassantY) {
+        // remove the pawn that did the two-step: it sits at (toX, fromY)
+        squares[fromY][toX] = '.';
+        performedEnPassant = true;
+    }
+
+    // Normal move (also covers promotion below)
     squares[toY][toX] = moved;
     squares[fromY][fromX] = '.';
 
@@ -433,6 +456,19 @@ bool Board::makeMove(const std::string &move) {
         if (fromX == 7 && fromY == 7 && moved == 'R') whiteRookMoved[1] = true;
         if (fromX == 0 && fromY == 0 && moved == 'r') blackRookMoved[0] = true;
         if (fromX == 7 && fromY == 0 && moved == 'r') blackRookMoved[1] = true;
+    }
+
+    // EN PASSANT: set or clear enPassant target
+    // If this move was a pawn 2-step, set target; otherwise clear it.
+    if (std::toupper(moved) == 'P' && std::abs(toY - fromY) == 2) {
+        // direction from->to: dir = sign(toY - fromY)
+        int dir = (toY - fromY) > 0 ? 1 : -1;
+        enPassantX = toX;             // file of pawn that jumped
+        enPassantY = fromY + dir;     // square passed over
+    } else {
+        // clear en-passant when any other move occurs (including en-passant captures)
+        enPassantX = -1;
+        enPassantY = -1;
     }
 
     lastMove = move;
