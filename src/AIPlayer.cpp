@@ -47,6 +47,20 @@ std::string AIPlayer::findBestMove(Board& board) {
         Board copy = board;
         copy.makeMove(mv);
         double score = evaluateBoard(copy);
+
+        // Add bias to make AI favour variety and avoid king shuffling
+        char movingPiece = board.getSquare(mv[0] - 'a', '8' - mv[1]);
+        double bias = 0.0;
+        switch (std::toupper(movingPiece)) {
+            case 'P': bias = ((rand() % 100) < 20) ? 0.2 : 0.0; break; // favour pawns a bit
+            case 'N': bias = ((rand() % 100) < 15) ? 0.3 : 0.0; break; // knights sometimes adventurous
+            case 'B': bias = ((rand() % 100) < 10) ? 0.3 : 0.0; break;
+            case 'R': bias = ((rand() % 100) < 5)  ? 0.4 : 0.0; break;
+            case 'Q': bias = ((rand() % 100) < 5)  ? 0.5 : 0.0; break;
+            case 'K': bias = -1.0; break; // discourage unnecessary king moves
+        }
+        score += bias;
+
         if (score > bestScore) {
             bestScore = score;
             bestMove = mv;

@@ -143,9 +143,9 @@ bool Board::isValidKingMove(int fromX, int fromY, int toX, int toY) const {
     int dx = toX - fromX;
     int dy = toY - fromY;
 
-    std::cout << "DEBUG: fromX=" << fromX << " fromY=" << fromY
-              << " toX=" << toX << " toY=" << toY
-              << " dx=" << dx << " dy=" << dy << "\n";  // debug
+    //std::cout << "DEBUG: fromX=" << fromX << " fromY=" << fromY
+    //          << " toX=" << toX << " toY=" << toY
+    //          << " dx=" << dx << " dy=" << dy << "\n";  // debug
 
     // Normal king move
     if (std::max(std::abs(dx), std::abs(dy)) == 1)
@@ -154,9 +154,9 @@ bool Board::isValidKingMove(int fromX, int fromY, int toX, int toY) const {
     // Castling
     if (dy == 0 && std::abs(dx) == 2) {
         if (currentPlayer == 'W') {
-            std::cout << "DEBUG: whiteKingMoved=" << whiteKingMoved
-                      << " whiteRookMoved[0]=" << whiteRookMoved[0]
-                      << " whiteRookMoved[1]=" << whiteRookMoved[1] << "\n"; // debug
+            //std::cout << "DEBUG: whiteKingMoved=" << whiteKingMoved
+            //          << " whiteRookMoved[0]=" << whiteRookMoved[0]
+            //          << " whiteRookMoved[1]=" << whiteRookMoved[1] << "\n"; // debug
             if (whiteKingMoved) return false;
 
             // Kingside
@@ -171,9 +171,9 @@ bool Board::isValidKingMove(int fromX, int fromY, int toX, int toY) const {
                 !isSquareAttacked(4,7,false) && !isSquareAttacked(3,7,false) && !isSquareAttacked(2,7,false))
                 return true;
         } else {
-            std::cout << "DEBUG: blackKingMoved=" << blackKingMoved
-                      << " blackRookMoved[0]=" << blackRookMoved[0]
-                      << " blackRookMoved[1]=" << blackRookMoved[1] << "\n"; // debug
+            //std::cout << "DEBUG: blackKingMoved=" << blackKingMoved
+            //          << " blackRookMoved[0]=" << blackRookMoved[0]
+            //          << " blackRookMoved[1]=" << blackRookMoved[1] << "\n"; // debug
             if (blackKingMoved) return false;
 
             // Kingside
@@ -241,8 +241,8 @@ bool Board::wouldLeaveKingInCheck(int fromX, int fromY, int toX, int toY) const 
     char piece = copy.squares[fromY][fromX];
 
     // Debug
-    std::cout << "DEBUG: wouldLeaveKingInCheck from=" << fromX << fromY
-              << " to=" << toX << toY << "\n";
+    //std::cout << "DEBUG: wouldLeaveKingInCheck from=" << fromX << fromY
+    //          << " to=" << toX << toY << "\n";
 
     // Castling: move king and rook together
     if (std::toupper(piece) == 'K' && std::abs(toX - fromX) == 2) {
