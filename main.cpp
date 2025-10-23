@@ -29,20 +29,16 @@ int main() {
     }
 
     int moveCount = 0;
-    const int maxMoves = 200; // Hard limit
+    const int maxMoves = 300; // Hard limit
     std::vector<std::string> moveHistory;
 
-    board.display();
     std::cout << "Press 'q' then Enter at any time to quit.\n";
 
     while (moveCount < maxMoves) {
         char current = board.getCurrentPlayer();
         std::string move;
 
-        std::cout << "\n--- Move " << (moveCount + 1) << " ---\n";
-        std::cout << "Current player: " << (current == 'W' ? "White" : "Black") << "\n";
-
-        // Human quit detection (if input is ready)
+        // Human quit detection
         if (std::cin.rdbuf()->in_avail() > 0) {
             char c;
             std::cin >> c;
@@ -51,6 +47,12 @@ int main() {
                 break;
             }
         }
+
+        // Display move counter and current player **above board**
+        std::cout << "\n--- Move " << (moveCount + 1) << " ---\n";
+        std::cout << "Current player: " << (current == 'W' ? "White" : "Black") << "\n";
+
+        auto aiStart = std::chrono::high_resolution_clock::now(); // Timer for AI
 
         // Determine move based on mode
         if (mode == 1) { // PvP
@@ -69,7 +71,6 @@ int main() {
                     std::cout << "AI has no legal moves.\n";
                     break;
                 }
-                std::cout << "AI plays: " << move << "\n";
             }
         }
         else if (mode == 3) { // AIvAI
@@ -79,20 +80,32 @@ int main() {
                 std::cout << "AI (" << current << ") has no legal moves.\n";
                 break;
             }
-            std::cout << "AI (" << current << ") plays: " << move << "\n";
             std::this_thread::sleep_for(std::chrono::milliseconds(moveDelayMs));
         }
+
+        auto aiEnd = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = aiEnd - aiStart;
 
         // Make move
         if (!board.makeMove(move)) {
             std::cout << "Invalid move, try again.\n";
-            continue; // Don't increment moveCount if move fails
+            continue; // Don't increment moveCount
         }
-
         moveHistory.push_back(move);
         moveCount++;
 
+        // Clear terminal **before showing board**
+        std::cout << "\033[2J\033[1;1H";
+
+        // Display board
         board.display();
+
+        // Show AI info under board
+        if ((mode == 2 && current == 'B') || mode == 3) {
+            std::cout << "\n--- AI INFO ---\n";
+            std::cout << "AI (" << (current == 'W' ? "White" : "Black") << ") played: " << move << "\n";
+            std::cout << "AI thinking time: " << elapsed.count() * 1000 << " ms\n";
+        }
 
         // Check endgame
         char nextPlayer = board.getCurrentPlayer();
@@ -116,7 +129,7 @@ int main() {
         std::cout << "\nReached hard move limit of " << maxMoves << " — draw declared.\n";
     }
 
-    // Write move history to file (overwrite each time)
+    // Write move history to file
     std::ofstream outFile("moves.txt");
     for (const auto &m : moveHistory) outFile << m << "\n";
     outFile.close();

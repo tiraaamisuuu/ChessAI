@@ -1,63 +1,156 @@
 #include "AIPlayer.hpp"
+#include "Board.hpp"
 #include <vector>
 #include <cstdlib>
 #include <ctime>
-#include <map>
 #include <cctype>
 #include <iostream>
 #include <iomanip>
-#include <cmath>
-#include <thread>
+#include <algorithm>
 #include <chrono>
 
-AIPlayer::AIPlayer(char color) : playerColor(color), lastMoveFrom("") {
+AIPlayer::AIPlayer(char color) : playerColor(color), lastMoveFrom(""), totalThinkingTime(0.0), movesCount(0) {
     std::srand(std::time(nullptr));
 }
 
-std::string AIPlayer::findBestMove(Board& board) {
-    std::vector<std::string> legalMoves;
+// Piece base values
+double AIPlayer::pieceValue(char piece) const {
+    switch (std::toupper(piece)) {
+        case 'P': return 1.0;
+        case 'N': case 'B': return 3.0;
+        case 'R': return 5.0;
+        case 'Q': return 9.0;
+        case 'K': return 1000.0; // king extremely high to prevent losing
+    }
+    return 0.0;
+}
 
-    // Generate all legal moves
-    for (int fromY = 0; fromY < 8; ++fromY) {
-        for (int fromX = 0; fromX < 8; ++fromX) {
-            char piece = board.getSquare(fromX, fromY);
-            if (piece == '.') continue;
-            if ((playerColor == 'W' && !std::isupper(piece)) ||
-                (playerColor == 'B' && !std::islower(piece))) continue;
+// Evaluate board from AI perspective
+double AIPlayer::evaluateBoard(const Board &board) const {
+    double score = 0.0;
 
-            for (int toY = 0; toY < 8; ++toY) {
-                for (int toX = 0; toX < 8; ++toX) {
-                    std::string mv = std::string() + char('a' + fromX) + char('8' - fromY)
-                                     + char('a' + toX) + char('8' - toY);
-                    if (board.isMoveValid(mv))
-                        legalMoves.push_back(mv);
+    for (int y = 0; y < 8; ++y) {
+        for (int x = 0; x < 8; ++x) {
+            char p = board.getSquare(x, y);
+            if (p == '.') continue;
+
+            double val = pieceValue(p);
+            bool isMine = (playerColor == 'W') ? std::isupper(p) : std::islower(p);
+
+            // Base piece value
+            score += isMine ? val : -val;
+
+            // Central control bonus
+            if ((x == 3 || x == 4) && (y == 3 || y == 4))
+                score += isMine ? 0.2 : -0.2;
+
+            // Aggression bonus: check if piece can capture any enemy piece
+            for (int ty = 0; ty < 8; ++ty) {
+                for (int tx = 0; tx < 8; ++tx) {
+                    char target = board.getSquare(tx, ty);
+                    if (target == '.') continue;
+
+                    bool isEnemy = (playerColor == 'W') ? std::islower(target) : std::isupper(target);
+
+                    if (isMine && isEnemy) {
+                        std::string attempt = std::string() + char('a'+x) + char('8'-y)
+                                              + char('a'+tx) + char('8'-ty);
+                        if (board.isMoveValid(attempt)) {
+                            score += pieceValue(target) * 0.5; // threat bonus
+                        }
+                    } else if (!isMine && !isEnemy) {
+                        std::string attempt = std::string() + char('a'+x) + char('8'-y)
+                                              + char('a'+tx) + char('8'-ty);
+                        if (board.isMoveValid(attempt)) {
+                            score -= pieceValue(target) * 0.5;
+                        }
+                    }
                 }
             }
         }
     }
 
+    return score;
+}
+
+// Generate all legal moves for a given color
+std::vector<std::string> AIPlayer::generateAllLegalMoves(Board &board, char color) {
+    std::vector<std::string> moves;
+    for (int fromY = 0; fromY < 8; ++fromY) {
+        for (int fromX = 0; fromX < 8; ++fromX) {
+            char piece = board.getSquare(fromX, fromY);
+            if (piece == '.') continue;
+            if ((color == 'W' && !std::isupper(piece)) || (color == 'B' && !std::islower(piece))) continue;
+
+            for (int toY = 0; toY < 8; ++toY) {
+                for (int toX = 0; toX < 8; ++toX) {
+                    std::string mv = std::string() + char('a'+fromX) + char('8'-fromY)
+                                     + char('a'+toX) + char('8'-toY);
+                    if (board.isMoveValid(mv)) moves.push_back(mv);
+                }
+            }
+        }
+    }
+    return moves;
+}
+
+// Mini-minimax 2-ply
+double AIPlayer::miniMax(Board board, int depth, bool maximizing) {
+    if (depth == 0) return evaluateBoard(board);
+
+    char color = maximizing ? playerColor : (playerColor=='W' ? 'B' : 'W');
+    std::vector<std::string> moves = generateAllLegalMoves(board, color);
+    if (moves.empty()) return evaluateBoard(board);
+
+    double best = maximizing ? -1e9 : 1e9;
+    for (auto &mv : moves) {
+        Board copy = board;
+        copy.makeMove(mv);
+
+        double score = miniMax(copy, depth-1, !maximizing);
+
+        // Aggression bonus for captures
+        char captured = board.getSquare(mv[2]-'a', '8'-mv[3]);
+        if (captured != '.') score += (maximizing ? 1 : -1) * pieceValue(captured) * 0.8;
+
+        if (maximizing) best = std::max(best, score);
+        else best = std::min(best, score);
+    }
+
+    return best;
+}
+
+// Main AI function
+std::string AIPlayer::findBestMove(Board &board) {
+    auto start = std::chrono::high_resolution_clock::now(); // Start timer
+
+    std::vector<std::string> legalMoves = generateAllLegalMoves(board, playerColor);
     if (legalMoves.empty()) return "";
 
-    // Track best move
     double bestScore = -1e9;
     std::string bestMove = "";
     double baseScore = evaluateBoard(board);
 
-    for (const std::string& mv : legalMoves) {
+    for (auto &mv : legalMoves) {
         Board copy = board;
         copy.makeMove(mv);
-        double score = evaluateBoard(copy);
 
-        // Add bias to make AI favour variety and avoid king shuffling
-        char movingPiece = board.getSquare(mv[0] - 'a', '8' - mv[1]);
+        double score = miniMax(copy, 2, false); // 2-ply lookahead
+
+        // Extra aggression bonus
+        char toPiece = board.getSquare(mv[2]-'a', '8'-mv[3]);
+        if (toPiece != '.') score += pieceValue(toPiece) * 0.8;
+
+        // Small random bias for variety
+        char movingPiece = board.getSquare(mv[0]-'a', '8'-mv[1]);
         double bias = 0.0;
         switch (std::toupper(movingPiece)) {
-            case 'P': bias = ((rand() % 100) < 20) ? 0.2 : 0.0; break; // favour pawns a bit
-            case 'N': bias = ((rand() % 100) < 15) ? 0.3 : 0.0; break; // knights sometimes adventurous
-            case 'B': bias = ((rand() % 100) < 10) ? 0.3 : 0.0; break;
-            case 'R': bias = ((rand() % 100) < 5)  ? 0.4 : 0.0; break;
-            case 'Q': bias = ((rand() % 100) < 5)  ? 0.5 : 0.0; break;
-            case 'K': bias = -1.0; break; // discourage unnecessary king moves
+            case 'P': bias = ((rand()%100)<20)?0.2:0.0; break;
+            case 'N': bias = ((rand()%100)<15)?0.3:0.0; break;
+            case 'B': bias = ((rand()%100)<10)?0.3:0.0; break;
+            case 'R': bias = ((rand()%100)<5)?0.4:0.0; break;
+            case 'Q': bias = ((rand()%100)<5)?0.5:0.0; break;
+            case 'K': bias = -1.0; break;
         }
         score += bias;
 
@@ -67,7 +160,7 @@ std::string AIPlayer::findBestMove(Board& board) {
         }
     }
 
-    // Evaluation difference (for commentary)
+    // Commentary
     double diff = bestScore - baseScore;
     std::string comment;
     if (diff > 1.5) comment = "Excellent!";
@@ -77,47 +170,31 @@ std::string AIPlayer::findBestMove(Board& board) {
     else if (diff > -3) comment = "Mistake.";
     else comment = "Blunder!";
 
-    // If no obvious move found, random fallback (avoid repetition)
     if (bestMove.empty()) {
         std::vector<std::string> nonRepeating;
-        for (const std::string& mv : legalMoves) {
-            std::string from = mv.substr(0, 2);
-            if (from != lastMoveFrom)
-                nonRepeating.push_back(mv);
-        }
+        for (auto &mv : legalMoves)
+            if (mv.substr(0,2) != lastMoveFrom) nonRepeating.push_back(mv);
         if (nonRepeating.empty()) nonRepeating = legalMoves;
-        bestMove = nonRepeating[rand() % nonRepeating.size()];
+        bestMove = nonRepeating[rand()%nonRepeating.size()];
         comment = "Random fallback.";
     }
 
-    lastMoveFrom = bestMove.substr(0, 2);
+    lastMoveFrom = bestMove.substr(0,2);
+
+    auto end = std::chrono::high_resolution_clock::now(); // End timer
+    std::chrono::duration<double> elapsed = end - start;
+
+    totalThinkingTime += elapsed.count();
+    movesCount++;
 
     std::cout << "\n========== AI DEBUG INFO ==========\n";
-    std::cout << "AI Colour: " << (playerColor == 'W' ? "White" : "Black") << "\n";
-    std::cout << "Base Score: " << std::fixed << std::setprecision(2) << baseScore << "\n";
+    std::cout << "AI Colour: " << (playerColor=='W'?"White":"Black") << "\n";
     std::cout << "Chosen Move: " << bestMove << "\n";
-    std::cout << "New Score:   " << bestScore << "\n";
-    std::cout << "Eval Δ:       " << (bestScore - baseScore) << " → " << comment << "\n";
-    std::cout << "Last Move From: " << lastMoveFrom << "\n";
-    std::cout << "===================================\n\n";
+    std::cout << "Move Eval Δ: " << diff << " → " << comment << "\n";
+    std::cout << "Time for this move: " << elapsed.count()*1000 << " ms\n";
+    if (movesCount > 0)
+        std::cout << "Average Thinking Time: " << (totalThinkingTime/movesCount*1000) << " ms\n";
+    std::cout << "===================================\n\n" << std::flush;
 
     return bestMove;
-}
-
-double AIPlayer::evaluateBoard(const Board& board) const {
-    double score = 0.0;
-    std::map<char, double> pieceValues = {
-        {'P', 1.0}, {'N', 3.0}, {'B', 3.0}, {'R', 5.0}, {'Q', 9.0}, {'K', 200.0},
-        {'p', -1.0}, {'n', -3.0}, {'b', -3.0}, {'r', -5.0}, {'q', -9.0}, {'k', -200.0}
-    };
-
-    for (int y = 0; y < 8; ++y) {
-        for (int x = 0; x < 8; ++x) {
-            char piece = board.getSquare(x, y);
-            if (pieceValues.count(piece))
-                score += pieceValues[piece];
-        }
-    }
-
-    return (playerColor == 'W') ? score : -score;
 }
