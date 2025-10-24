@@ -10,8 +10,8 @@
 
 int main() {
     Board board;
-    AIPlayer aiWhite('W');
-    AIPlayer aiBlack('B');
+    AIPlayer aiWhite('W', 4);
+    AIPlayer aiBlack('B', 4);
 
     std::cout << "Select mode:\n";
     std::cout << "1. Player vs Player\n";
